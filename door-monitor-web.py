@@ -143,7 +143,7 @@ async def check_in_room(ctx):
 # async def simulate_scan(ctx, *, identifier: str):
 #     """
 #     开发测试用：通过输入 姓名 或 ID 来模拟物理刷卡
-#     用法: /模拟刷卡 宮﨑 陽向   或   /模拟刷卡 1209208
+#     用法: /模拟刷卡 KIT 太郎   或   /模拟刷卡 1234567
 #     """
 #     target_id = None
     
