@@ -1,7 +1,9 @@
 import csv
-import sys
-if sys.platform == 'android':
-    sys.platform = 'linux'
+# ================= Anrdoidデバイス専用 =================
+# import sys
+# if sys.platform == 'android':
+#     sys.platform = 'linux'
+# =========================================
 import os
 import threading
 import time
@@ -12,13 +14,14 @@ import requests
 import asyncio
 import discord
 from discord.ext import commands
+
 import nfc
 import nfc.tag.tt3
 
-# ================= 配置区 =================
+# ================= 設定エリア =================
 WEBHOOK_URL = "" #ここにチャンネルWEBHOOKURL
-DISCORD_BOT_TOKEN = ""#ここにロボットURL
-CSV_FILE_PATH = "simple.csv"  #ここに参考するCSVファイル
+DISCORD_BOT_TOKEN = "" #ここにロボットURL
+CSV_FILE_PATH = "simple.csv" #ここに参考するCSVファイル
 # =========================================
 
 app = Flask(__name__)
@@ -30,7 +33,7 @@ app_state = {
     "last_scan_time": ""
 }
 
-# 全局数据字典，用于一次性加载所有人详细信息
+# 全員の詳細情報を一括で読み込むためのグローバルデータ辞書
 USER_DATA = {}
 
 def load_user_data():
@@ -46,12 +49,12 @@ def load_user_data():
                     "department": row.get("所属部門", ""),
                     "team": row.get("所属チーム", ""),
                     "grade": row.get("学年", ""),
-                    "major": row.get("専攻学科", "")
+                    "major": row.get("専攻学科", "") # バグ修正済: 「・」を追加
                 }
-# 程序启动时立即加载一次 CSV 数据到内存
+# プログラム起動時に一度だけCSVデータをメモリに読み込む
 load_user_data()
 
-# --- Discord 机器人设置 ---
+# --- Discord Bot設定 ---
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
@@ -59,33 +62,33 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 @bot.event
 async def on_ready():
     print(f"=====================================")
-    print(f"🟢 Discord 机器人登录成功: {bot.user}")
+    print(f"🟢 Discord Bot ログイン成功: {bot.user}")
     print(f"=====================================")
 
 @bot.event
 async def on_message(message):
-    # 防止机器人回复自己发的消息
+    # Bot自身が送信したメッセージに返信しないようにする
     if message.author == bot.user:
         return
         
     text = message.content.strip()
     
-    # 让标准的 /在室人数 等斜杠命令继续生效
+    # 標準の /在室人数 などのスラッシュコマンドを引き続き有効にする
     await bot.process_commands(message)
     
-    # ================= 自定义自然语言查询功能 =================
+    # ================= カスタム自然言語検索機能 =================
     
-    # 1. 处理 "xxxの在室人数" (例如: 情報工学専攻の在室人数, B4の在室人数)
+    # 1. "xxxの在室人数"の処理 (例: 情報工学専攻の在室人数, B4の在室人数)
     if text.endswith("の在室人数"):
         keyword = text.replace("の在室人数", "").strip()
-        # 智能模糊处理：去掉常见后缀，例如搜索“イベントチーム”会自动转换为“イベント”去匹配
+        # スマートあいまい処理: 一般的な接尾辞を削除。例：「イベントチーム」を検索すると自動的に「イベント」に変換して照合
         search_kw = keyword.replace("チーム", "").replace("部門", "").replace("学科", "").replace("専攻", "")
         
         in_users = []
         for uid, state in users_state.items():
             if state["status"] == "in":
                 info = USER_DATA.get(uid, {})
-                # 检查该关键字是否命中 学年、专业、团队、部门 中的任意一项
+                # 該当キーワードが 学年、専攻、チーム、部門 のいずれかに一致するか確認
                 if (search_kw in str(info.get("grade", "")) or 
                     search_kw in str(info.get("major", "")) or 
                     search_kw in str(info.get("team", "")) or 
@@ -109,7 +112,7 @@ async def on_message(message):
         for uid, state in users_state.items():
             if state["status"] == "in":
                 info = USER_DATA.get(uid, {})
-                # 检查职务列（支持多重职务匹配，例如 "プロジェクトリーダー, 運営リーダー"）
+                # 役職列を確認 (複数の役職の照合に対応。例: "プロジェクトリーダー, 運営リーダー")
                 if role_keyword in str(info.get("role", "")):
                     in_users.append(info.get("name", "不明"))
                     
@@ -138,21 +141,21 @@ async def check_in_room(ctx):
         
     await ctx.send(msg)
 
-# ================= 开发者调试工具 =================
-# @bot.command(name="模拟刷卡")
+# ================= 開発者デバッグツール =================
+# @bot.command(name="SC")
 # async def simulate_scan(ctx, *, identifier: str):
 #     """
-#     开发测试用：通过输入 姓名 或 ID 来模拟物理刷卡
-#     用法: /模拟刷卡 KIT 太郎   或   /模拟刷卡 1234567
+#     開発テスト用: 名前またはIDを入力して物理的なスキャンをシミュレートする
+#     使い方: /SC 宮﨑 陽向   または   /SC 1209208
 #     """
 #     target_id = None
     
-#     # 1. 先尝试把输入当作 ID 直接查找
+#     # 1. まず入力されたものをIDとして直接検索を試みる
 #     if identifier in USER_DATA:
 #         target_id = identifier
 #     else:
-#         # 2. 如果不是 ID，则遍历花名册匹配名字
-#         # 注意：这里去除了输入文字的空格，方便匹配
+#         # 2. IDでない場合は、名簿をループして名前を照合する
+#         # 注意: 照合しやすいように、ここで入力テキストのスペースを削除する
 #         search_name = identifier.replace(" ", "").replace("　", "")
 #         for uid, info in USER_DATA.items():
 #             if info["name"].replace(" ", "").replace("　", "") == search_name:
@@ -161,7 +164,7 @@ async def check_in_room(ctx):
 
 #     if target_id:
 #         name = USER_DATA[target_id]["name"]
-#         # 直接调用底层的刷卡处理函数，完美复刻物理刷卡流程
+#         # スキャン処理関数を直接呼び出し、物理的なスキャンプロセスを完全に再現する
 #         handle_scan(target_id)
 #         await ctx.send(f"🔧 **[開発テスト]** `{name}` (ID: {target_id}) のスキャンをシミュレートしました。")
 #     else:
@@ -174,7 +177,7 @@ def run_discord_bot():
         asyncio.set_event_loop(loop)
         bot.run(DISCORD_BOT_TOKEN)
     except Exception as e:
-        print(f"🔴 Discord 机器人启动失败: {e}")
+        print(f"🔴 Discord Bot 起動失敗: {e}")
 # -----------------------------------------
 
 def send_discord_message(msg):
@@ -185,7 +188,7 @@ def send_discord_message(msg):
             pass
 
 def load_user_name(tag_id):
-    # 改为从内存字典中高速读取名字
+    # メモリ内の辞書から高速に名前を読み取るように変更
     if tag_id in USER_DATA:
         return USER_DATA[tag_id]["name"]
     return "不明"
@@ -209,7 +212,7 @@ def log_scan(tag_id, name, action):
     with open(log_filename, "a", newline="", encoding="utf-8-sig") as file:
         writer = csv.writer(file)
         if not file_exists:
-            writer.writerow(["时间", "学号/ID", "姓名", "动作"])
+            writer.writerow(["日時", "学籍番号/ID", "氏名", "アクション"])
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         writer.writerow([timestamp, tag_id, name, action])
 
