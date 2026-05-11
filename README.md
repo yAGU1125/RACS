@@ -1,5 +1,5 @@
 # KITeNプロジェクトルーム入退室管理システム
-# (Room Access Control System)
+(Room Access Control System)
 
 スマートフォンやPCからアクセス可能なWeb UIと、Discord Bot連携機能を備えたサークル・研究室向けの入退室管理システムです。学生証や交通系ICカードをタッチするだけで、入退室の記録とDiscordへのリアルタイム通知が行われます。
 
